@@ -27,7 +27,7 @@
 //
 
 #include <Wire.h>
-byte readBuff_;
+char readOneChar_;
 
 void eeprom_i2c_write(byte address, byte from_addr, byte data) {
   Wire.beginTransmission(address);
@@ -56,6 +56,7 @@ void setup()
 
   byte error, address;
   int nDevices;
+  readOneChar_ = -1;
 
   Serial.println("Scanning for I2C devices...");
 
@@ -101,37 +102,48 @@ void setup()
   Serial.print(">");
 }
 
-byte readBuff()
+char readOneChar()
 {
-  if (readBuff_ != -1) {
-    byte temp = readBuff_;
-    readBuff_ == -1;
+  char read_buffer[1];
+  if (readOneChar_ != -1) {
+    Serial.println("Flushing readOneChar_");
+    char temp = readOneChar_;
+    readOneChar_ = -1;
     return temp;
   } else {
-    return Serial.read();
+    Serial.readBytes(read_buffer, 1);
+    return read_buffer[0];
   }
 }
 
 byte readNumber()
 {
-  byte c;
-  char* string;
-  boolean done = false;
-  while (Serial.available() > 0 && done == false) {
-    c = readBuff();
+  char c;
+  char string[20];
+  string[0] = 0;
+  boolean done = true;
+  if (Serial.available()) {
+    done = false;
+  }
+  while (done == false) {
+    c = readOneChar();
+    Serial.print("I got a char: ");
+    Serial.println(c, HEX);
     if (c >= '0' && c <= '9' ||
         c >= 'a' && c <= 'f' ||
         c >= 'A' && c <= 'F' ||
         c == 'x' ) {
-          strcat(string, (char*) c);
-        } else {
+          Serial.println("Appending char");
+          strncat(string, &c, 1);
+         } else {
+          readOneChar_ = c;  // Leftovers live here
           done = true;
         }
-    readBuff_ = c;  // Leftovers live here
   }
   Serial.print("I got a string: ");
   Serial.println(string);
-  return (byte) strtod(string, NULL);
+  Serial.println(strtol(string, NULL, 16), HEX);
+  return (byte) strtol(string, NULL, 16);
 }
 
 void loop()
@@ -144,13 +156,14 @@ void loop()
     Serial.print("Device 0x");
     Serial.print(address,HEX);
     Serial.println(":");
-    rORw = readBuff();
+    while(true) {}
+    rORw = readOneChar();
     if (rORw=='R')
     {
       offset = readNumber();
       Serial.print("Reading from 0x");
       Serial.println(offset,HEX);
-      c = readBuff();
+      c = readOneChar();
       if (c=='C')
       {
         count = readNumber();
@@ -170,7 +183,7 @@ void loop()
       offset = readNumber();
       while(Serial.available()>0)
       {
-        d = readBuff();
+        d = readOneChar();
         if (d=='D')
         {
           writeData = Serial.parseInt();
