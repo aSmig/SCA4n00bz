@@ -92,8 +92,8 @@ void setup()
   else
   {
     Serial.println("done.\n");
-    Serial.println("To read an EEPROM: [Device Address]R[offset]C[# bytes]");
-    Serial.println("    Example: 80R00 or 80R00C8");
+    Serial.println("To read an EEPROM: [Device Address]R[offset]N[# bytes]");
+    Serial.println("    Example: 80R00 or 80R00N8");
     Serial.println("To write an EEPROM: [Device Address]W[offset]D[Data]D[Data]...");
     Serial.println("    Example: 80W00D255 or 80W01D37D9D129D56D1D0D0 or 80W01D169D8D9D0D132D35D0 or 80W01D180D4D19D134");
     Serial.println("\n Pardon my bad coding, you must enter decimal numbers, and there is minimal error checking");
@@ -127,19 +127,21 @@ byte readNumber()
   }
   while (done == false) {
     c = readOneChar();
-    Serial.print("I got a char: ");
-    Serial.println(c, HEX);
+    Serial.print("                  ");
+    //Serial.print("I got a char: ");
+    //Serial.println(c, HEX);
     if (c >= '0' && c <= '9' ||
         c >= 'a' && c <= 'f' ||
         c >= 'A' && c <= 'F' ||
         c == 'x' ) {
-          Serial.println("Appending char");
+          //Serial.println("Appending char");
           strncat(string, &c, 1);
          } else {
           readOneChar_ = c;  // Leftovers live here
           done = true;
         }
   }
+  Serial.println("");
   Serial.print("I got a string: ");
   Serial.println(string);
   Serial.println(strtol(string, NULL, 16), HEX);
@@ -156,7 +158,6 @@ void loop()
     Serial.print("Device 0x");
     Serial.print(address,HEX);
     Serial.println(":");
-    while(true) {}
     rORw = readOneChar();
     if (rORw=='R')
     {
@@ -164,7 +165,7 @@ void loop()
       Serial.print("Reading from 0x");
       Serial.println(offset,HEX);
       c = readOneChar();
-      if (c=='C')
+      if (c=='N')
       {
         count = readNumber();
         Serial.print("bytes to read:");
@@ -184,9 +185,9 @@ void loop()
       while(Serial.available()>0)
       {
         d = readOneChar();
-        if (d=='D')
+        if (d==' ')
         {
-          writeData = Serial.parseInt();
+          writeData = readNumber();
           Serial.print(offset,HEX);
           Serial.print(": ");
           Serial.println(writeData,HEX);
