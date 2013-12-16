@@ -27,7 +27,7 @@
 //
 
 #include <Wire.h>
-
+byte readBuff_;
 
 void eeprom_i2c_write(byte address, byte from_addr, byte data) {
   Wire.beginTransmission(address);
@@ -101,26 +101,59 @@ void setup()
   Serial.print(">");
 }
 
+byte readBuff()
+{
+  if (readBuff_ != -1) {
+    byte temp = readBuff_;
+    readBuff_ == -1;
+    return temp;
+  } else {
+    return Serial.read();
+  }
+}
+
+byte readNumber()
+{
+  byte c;
+  char* string;
+  boolean done = false;
+  while (Serial.available() > 0 && done == false) {
+    c = readBuff();
+    if (c >= '0' && c <= '9' ||
+        c >= 'a' && c <= 'f' ||
+        c >= 'A' && c <= 'F' ||
+        c == 'x' ) {
+          strcat(string, (char*) c);
+        } else {
+          done = true;
+        }
+    readBuff_ = c;  // Leftovers live here
+  }
+  Serial.print("I got a string: ");
+  Serial.println(string);
+  return (byte) strtod(string, NULL);
+}
+
 void loop()
 {
   byte address,offset,count;
   byte rORw,d,c;
   byte writeData;
   if (Serial.available() > 0) {
-    address = Serial.parseInt();
+    address = readNumber();
     Serial.print("Device 0x");
     Serial.print(address,HEX);
     Serial.println(":");
-    rORw = Serial.read();
+    rORw = readBuff();
     if (rORw=='R')
     {
-      offset = Serial.parseInt();
+      offset = readNumber();
       Serial.print("Reading from 0x");
       Serial.println(offset,HEX);
-      c = Serial.read();
+      c = readBuff();
       if (c=='C')
       {
-        count = Serial.parseInt();
+        count = readNumber();
         Serial.print("bytes to read:");
         Serial.println(count);
       }
@@ -134,10 +167,10 @@ void loop()
     }
     else if (rORw=='W')
     {
-      offset = Serial.parseInt();
+      offset = readNumber();
       while(Serial.available()>0)
       {
-        d = Serial.read();
+        d = readBuff();
         if (d=='D')
         {
           writeData = Serial.parseInt();
