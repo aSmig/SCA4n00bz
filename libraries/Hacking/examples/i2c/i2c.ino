@@ -1,7 +1,7 @@
 // --------------------------------------
-// i2c_scanner
+// i2c Scanner and EEPROM tool
 //
-// Version 1
+// Version 1 (i2c_scanner)
 //    This program (or code that looks like it)
 //    can be found in many places.
 //    For example on the Arduino.cc forum.
@@ -21,6 +21,8 @@
 //    A sensor seems to use address 120.
 // Version 6, July 25, 2013
 //    This version modified by joefitz@securinghardware.com to add interactive eeprom read/write from serial console
+// Version 7, December 27, 2013, Using Arduino 1.0.5
+//    Modified by outofculture and aSmig to improve number parsing
 //
 // This sketch tests the standard 7-bit addresses
 // Devices with higher bit address might not be seen properly.
@@ -28,21 +30,24 @@
 
 #include <Wire.h>
 #define DELAY_MS 10
+#define MAX_NUM_CHARS 20
 
-void eeprom_i2c_write(byte address, byte from_addr, byte data) {
+void eeprom_i2c_write(byte address, byte from_addr, byte data)
+{
   Wire.beginTransmission(address);
   Wire.write(from_addr);
   Wire.write(data);
   Wire.endTransmission();
 }
 
-byte eeprom_i2c_read(int address, int from_addr) {
+byte eeprom_i2c_read(int address, int from_addr)
+{
   Wire.beginTransmission(address);
   Wire.write(from_addr);
   Wire.endTransmission();
 
   Wire.requestFrom(address, 1);
-  if(Wire.available())
+  if (Wire.available())
     return Wire.read();
   else
     return 0xFF;
@@ -57,11 +62,10 @@ void setup()
   byte error, address;
   int nDevices;
 
-  return;
   Serial.println("Scanning for I2C devices...");
 
   nDevices = 0;
-  for(address = 1; address < 127; address++ ) 
+  for(address = 1; address < 127; address++)
   {
     // The i2c_scanner uses the return value of
     // the Write.endTransmisstion to see if
@@ -72,19 +76,19 @@ void setup()
     if (error == 0)
     {
       Serial.print("I2C device found at address 0x");
-      if (address<16) 
+      if (address < 16) 
         Serial.print("0");
-      Serial.print(address,HEX);
+      Serial.print(address, HEX);
       Serial.println("  !");
 
       nDevices++;
     }
-    else if (error==4) 
+    else if (error == 4) 
     {
       Serial.print("Unknow error at address 0x");
-      if (address<16) 
+      if (address < 16) 
         Serial.print("0");
-      Serial.println(address,HEX);
+      Serial.println(address, HEX);
     }    
   }
   if (nDevices == 0)
@@ -107,9 +111,8 @@ void setup()
 }
 
 void serialAvailableBlock() {
-  while (Serial.available() < 1) {
+  while (Serial.available() < 1)
     delay(DELAY_MS);
-  }
 }  
 
 char blockingRead()
@@ -127,92 +130,81 @@ char blockingPeek()
 byte readNumber()
 {
   char c;
-  char string[20];
-  string[0] = 0;
-  boolean done = false;
-  while (done == false) {
+  byte i = 0;
+  char string[MAX_NUM_CHARS] = {'\x00'};
+  while (i < MAX_NUM_CHARS)
+  {
+    i++;
     c = blockingRead();
     strncat(string, &c, 1);
-    //Serial.print("Building string: ");
-    //Serial.println(string);
     c = blockingPeek();
-    //Serial.print("                             ");
-    //Serial.print("Peek at next char: ");
-    //Serial.println(c);
-    if (c >= '0' && c <= '9' ||
-      c >= 'a' && c <= 'f' ||
-      c >= 'A' && c <= 'F' ||
-      c == 'x' )
+    if ((c < '0' || c > '9') && (c < 'a' || c > 'f') &&
+        (c < 'A' || c > 'F') && c != 'x' && c != 'X' )
     {
-      //Serial.println("More to come");
-      // 0x45R0x67
-    } 
-    else {
-      //Serial.print("Non-number character is next: 0x");
-      //Serial.println(c, HEX);
-      done = true;
+      return (byte) strtol(string, NULL, 0);
     }
   }
-  //Serial.println("");
-  //Serial.print("The final string is: ");
-  //Serial.print(string);
-  //Serial.print(" with value: ");
-  //Serial.println(strtol(string, NULL, 0), HEX);
-  return (byte) strtol(string, NULL, 0);
+  Serial.println("Too many number characters received.\n");
+  return -1;
 }
 
 void loop()
 {
-  byte address,offset,count;
-  byte rORw,d,c;
+  byte address, offset, count;
+  byte rORw, d, c;
   byte writeData;
-  if (Serial.available() > 0) {
+  if (Serial.available() > 0)
+  {
     address = readNumber();
     Serial.print("Device 0x");
-    Serial.print(address,HEX);
+    Serial.print(address, HEX);
     Serial.println(":");
     rORw = blockingRead();
-    if (rORw=='R')
+    if (rORw == 'R')
     {
       offset = readNumber();
       Serial.print("Reading from 0x");
-      Serial.println(offset,HEX);
+      Serial.println(offset, HEX);
       c = blockingRead();
-      if (c=='N')
+      if (c == 'N')
       {
         count = readNumber();
         Serial.print("bytes to read:");
         Serial.println(count);
       }
-      else count=1;
-      for (int i=0;i<count;i++)
+      else
+        count = 1;
+      for (int i = 0; i < count; i++)
       {
-        Serial.print(offset+i,HEX);
+        Serial.print(offset + i, HEX);
         Serial.print(": ");
-        Serial.println(eeprom_i2c_read(address,offset+i),HEX);
+        Serial.println(eeprom_i2c_read(address, offset + i), HEX);
       }
     }
-    else if (rORw=='W')
+    else if (rORw == 'W')
     {
       offset = readNumber();
-      while(Serial.available()>0)
+      while(Serial.available() > 0)
       {
         d = blockingRead();
-        if (d==' ')
+        if (d == ' ')
         {
           writeData = readNumber();
-          Serial.print(offset,HEX);
+          Serial.print(offset, HEX);
           Serial.print(": ");
-          Serial.println(writeData,HEX);
-          eeprom_i2c_write(address,offset++,writeData);
+          Serial.println(writeData, HEX);
+          eeprom_i2c_write(address, offset++, writeData);
         }
-        else if (c < ' ') {
+        else if (c < ' ')
+        {
           // Ignore Newline or Carriage return
         }
-        else Serial.println("Error Parsing Command\n");
+        else
+          Serial.println("Error Parsing Command\n");
       }
     }
-    else Serial.println("Error Parsing Command\n");
+    else
+      Serial.println("Error Parsing Command\n");
     Serial.print(">");
   }    
 }
