@@ -58,6 +58,7 @@ void setup()
   int nDevices;
   readOneChar_ = -1;
 
+  return;
   Serial.println("Scanning for I2C devices...");
 
   nDevices = 0;
@@ -127,19 +128,20 @@ byte readNumber()
   }
   while (done == false) {
     c = readOneChar();
-    Serial.print("                  ");
-    //Serial.print("I got a char: ");
-    //Serial.println(c, HEX);
+    strncat(string, &c, 1);
+    c = Serial.peek();
+    //Serial.print("                  ");
+    Serial.print("I got a char: ");
+    Serial.println(c);
     if (c >= '0' && c <= '9' ||
         c >= 'a' && c <= 'f' ||
         c >= 'A' && c <= 'F' ||
-        c == 'x' ) {
-          //Serial.println("Appending char");
-          strncat(string, &c, 1);
-         } else {
-          readOneChar_ = c;  // Leftovers live here
-          done = true;
-        }
+        c == 'x' )
+    {
+      Serial.println("More to come");
+    } else {
+      done = true;
+    }
   }
   Serial.println("");
   Serial.print("I got a string: ");
